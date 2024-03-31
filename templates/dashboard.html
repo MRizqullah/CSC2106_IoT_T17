@@ -4,43 +4,93 @@
     <title>Monitoring Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      .perimeter {
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        display: inline-block;
+        margin: 20px;
+        text-align: center;
+        line-height: 200px;
+        font-size: 24px;
+        font-weight: bold;
+      }
+      .indoor {
+        background-color: rgba(75, 192, 192, 0.6);
+      }
+      .outdoor {
+        background-color: rgba(255, 99, 132, 0.6);
+      }
+    </style>
   </head>
   <body>
     <h1>Monitoring Dashboard</h1>
-    <canvas id="deviceChart"></canvas>
+    <div class="perimeter indoor">
+      <span id="indoorCount">0</span>
+    </div>
+    <div class="perimeter outdoor">
+      <span id="outdoorCount">0</span>
+    </div>
+
+    <canvas id="signalChart"></canvas>
 
     <script>
       const socket = io();
 
-      const ctx = document.getElementById("deviceChart").getContext("2d");
-      const chart = new Chart(ctx, {
-        type: "bar",
+      socket.on("device_update", function (data) {
+        document.getElementById("indoorCount").textContent = data.indoor;
+        document.getElementById("outdoorCount").textContent = data.outdoor;
+      });
+
+      const ctx = document.getElementById("signalChart").getContext("2d");
+      const signalChart = new Chart(ctx, {
+        type: "line",
         data: {
-          labels: ["Indoor", "Outdoor"],
+          labels: [],
           datasets: [
             {
-              label: "Number of Devices",
-              data: [0, 0],
-              backgroundColor: [
-                "rgba(75, 192, 192, 0.6)",
-                "rgba(255, 99, 132, 0.6)",
-              ],
+              label: "Indoor Signal Strength",
+              data: [],
+              borderColor: "rgba(75, 192, 192, 1)",
+              backgroundColor: "rgba(75, 192, 192, 0.2)",
+              fill: true,
+            },
+            {
+              label: "Outdoor Signal Strength",
+              data: [],
+              borderColor: "rgba(255, 99, 132, 1)",
+              backgroundColor: "rgba(255, 99, 132, 0.2)",
+              fill: true,
             },
           ],
         },
         options: {
+          responsive: true,
           scales: {
+            x: {
+              display: true,
+              title: {
+                display: true,
+                text: "Time",
+              },
+            },
             y: {
-              beginAtZero: true,
-              stepSize: 1,
+              display: true,
+              title: {
+                display: true,
+                text: "Signal Strength",
+              },
             },
           },
         },
       });
 
-      socket.on("device_counts", function (data) {
-        chart.data.datasets[0].data = [data.indoor, data.outdoor];
-        chart.update();
+      socket.on("signal_update", function (data) {
+        signalChart.data.labels.push(new Date().toLocaleTimeString());
+        signalChart.data.datasets[0].data.push(data.indoor_signal);
+        signalChart.data.datasets[1].data.push(data.outdoor_signal);
+        signalChart.update();
       });
     </script>
   </body>
