@@ -20,7 +20,7 @@ socket.connect('http://localhost:5000')  # Replace with your server's URL
 socket.emit('device_signal', {
     'device_id': '123',
     'indoor_signal': 80,
-    'outdoor_signal': 100
+    'outdoor_signal': 60
 })
 
 # Wait for events indefinitely
