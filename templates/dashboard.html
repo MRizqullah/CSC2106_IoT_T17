@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Monitoring Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <h1>Monitoring Dashboard</h1>
+    <canvas id="deviceChart"></canvas>
+
+    <script>
+      const socket = io();
+
+      const ctx = document.getElementById("deviceChart").getContext("2d");
+      const chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: ["Indoor", "Outdoor"],
+          datasets: [
+            {
+              label: "Number of Devices",
+              data: [0, 0],
+              backgroundColor: [
+                "rgba(75, 192, 192, 0.6)",
+                "rgba(255, 99, 132, 0.6)",
+              ],
+            },
+          ],
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              stepSize: 1,
+            },
+          },
+        },
+      });
+
+      socket.on("device_counts", function (data) {
+        chart.data.datasets[0].data = [data.indoor, data.outdoor];
+        chart.update();
+      });
+    </script>
+  </body>
+</html>
