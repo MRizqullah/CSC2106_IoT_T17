@@ -1,8 +1,8 @@
 # IoT Device Monitoring Dashboard
 
-!\[Imgur Image\](<https://i.imgur.com/TUF74PO.png>)
-
 This project is a monitoring dashboard for IoT devices that tracks the location and signal strengths of devices in indoor and outdoor perimeters. The dashboard provides real-time visualizations of device counts and signal strengths using a combination of Flask, Flask-SocketIO, and Chart.js.
+
+![Alt text](https://i.imgur.com/TUF74PO.png)
 
 ## Features
 
