@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 import random
 
@@ -67,8 +67,8 @@ def receive_data():
         outdoor_devices.add(device_mac)
         indoor_devices.discard(device_mac)
 
-    socketio.emit('device_update', {'indoor': len(indoor_devices), 'outdoor': len(outdoor_devices)}, broadcast=True)
-    socketio.emit('signal_update', {'rssi': rssi}, broadcast=True)
+    socketio.emit('device_update', {'indoor': len(indoor_devices), 'outdoor': len(outdoor_devices)})
+    socketio.emit('signal_update', {'mac_address': device_mac, 'rssi': rssi})
 
     return jsonify({"status": "success", "message": "Data received"})
 
@@ -87,8 +87,8 @@ def receive_ble_data():
         else:
             ble_devices.discard(device_mac)
 
-        socketio.emit('ble_device_update', {'ble_devices': len(ble_devices)}, broadcast=True)
-        socketio.emit('ble_signal_update', {'mac_address': device_mac, 'rssi': rssi, 'board_name': board_name}, broadcast=True)
+    socketio.emit('ble_device_update', {'ble_devices': len(ble_devices)})
+    socketio.emit('ble_signal_update', {'mac_address': device_mac, 'rssi': rssi, 'board_name': board_name})
 
     return jsonify({"status": "success", "message": "BLE data received"})
 

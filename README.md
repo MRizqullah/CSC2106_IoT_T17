@@ -72,7 +72,7 @@ This project is a monitoring dashboard for IoT devices that tracks the location 
 3. To simulate IoT devices sending signal data to the server, you can use the provided example script or create your own client-side script. Run the script to start sending data:
 
    ```
-   pytest test_app.py
+   python test_app.py
    ```
 
 4. The dashboard will update in real-time, displaying the device counts in the circles and the signal strengths in the line chart.
