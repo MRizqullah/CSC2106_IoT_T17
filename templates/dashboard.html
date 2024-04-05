@@ -35,6 +35,12 @@
 
     <canvas id="signalChart"></canvas>
 
+    <div class="ble-devices">
+      <h2>BLE Devices</h2>
+      <p>Number of BLE Devices: <span id="bleDeviceCount">0</span></p>
+      <ul id="bleDeviceList"></ul>
+    </div>
+
     <script>
       const socket = io();
 
@@ -91,6 +97,24 @@
         signalChart.data.datasets[0].data.push(data.indoor_signal);
         signalChart.data.datasets[1].data.push(data.outdoor_signal);
         signalChart.update();
+      });
+
+      socket.on("ble_device_update", function (data) {
+        document.getElementById("bleDeviceCount").textContent =
+          data.ble_devices;
+      });
+
+      socket.on("ble_signal_update", function (data) {
+        var deviceList = document.getElementById("bleDeviceList");
+        var listItem = document.createElement("li");
+        listItem.textContent =
+          "MAC Address: " +
+          data.mac_address +
+          ", RSSI: " +
+          data.rssi +
+          ", Board Name: " +
+          data.board_name;
+        deviceList.appendChild(listItem);
       });
     </script>
   </body>

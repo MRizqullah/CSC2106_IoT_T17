@@ -17,6 +17,7 @@ This project is a monitoring dashboard for IoT devices that tracks the location 
 - Python 3.x
 - Flask
 - Flask-SocketIO
+- pytest
 
 ## Installation
 
@@ -71,10 +72,8 @@ This project is a monitoring dashboard for IoT devices that tracks the location 
 3. To simulate IoT devices sending signal data to the server, you can use the provided example script or create your own client-side script. Run the script to start sending data:
 
    ```
-   python iot_device_simulator.py
+   pytest test_app.py
    ```
-
-   The script will send random signal strengths to the server every 5 seconds.
 
 4. The dashboard will update in real-time, displaying the device counts in the circles and the signal strengths in the line chart.
 
