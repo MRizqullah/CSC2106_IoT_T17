@@ -21,19 +21,15 @@
    https://jgromes.github.io/RadioLib/
 */
 
-
-
-
 #include <RadioLib.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include "boards.h"
 
 // WiFi credentials and server URL
-const char* ssid = "Pixel_2658";
-const char* password = "IhateIOT";
-const char* serverUrl = "http://192.168.167.2:5000/api/data";  // Adjust to your server's address
-
+const char *ssid = "Pixel_2658";
+const char *password = "IhateIOT";
+const char *serverUrl = "http://192.168.167.2:5000/api/data"; // Adjust to your server's address
 
 SX1280 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 
@@ -45,15 +41,17 @@ volatile bool enableInterrupt = true;
 
 // FIFO buffer to store received data
 #define BUFFER_SIZE 30
-byte buffer[BUFFER_SIZE][6];  // Array of byte arrays to store 6-byte packets
-int head = 0;                 // Index of the oldest packet in the buffer
-int tail = 0;                 // Index where the next packet will be written
+byte buffer[BUFFER_SIZE][6]; // Array of byte arrays to store 6-byte packets
+int head = 0;                // Index of the oldest packet in the buffer
+int tail = 0;                // Index where the next packet will be written
 
 // this function is called when a complete packet
 // is received by the module
-void setFlag(void) {
+void setFlag(void)
+{
   // check if the interrupt is enabled
-  if (!enableInterrupt) {
+  if (!enableInterrupt)
+  {
     return;
   }
 
@@ -61,13 +59,15 @@ void setFlag(void) {
   receivedFlag = true;
 }
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   Serial.println("testing 123");
 
   // Initialize WiFi
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(1000);
     Serial.println("Connecting to WiFi...");
   }
@@ -81,8 +81,10 @@ void setup() {
   Serial.print("[SX1280] Initializing ... ");
   int state = radio.begin();
 #ifdef HAS_DISPLAY
-  if (u8g2) {
-    if (state != RADIOLIB_ERR_NONE) {
+  if (u8g2)
+  {
+    if (state != RADIOLIB_ERR_NONE)
+    {
       u8g2->clearBuffer();
       u8g2->drawStr(0, 12, "Initializing: FAIL!");
       u8g2->sendBuffer();
@@ -90,9 +92,12 @@ void setup() {
   }
 #endif
 
-  if (state == RADIOLIB_ERR_NONE) {
+  if (state == RADIOLIB_ERR_NONE)
+  {
     Serial.println("success!");
-  } else {
+  }
+  else
+  {
     Serial.print(F("failed, code "));
     Serial.println(state);
     while (true)
@@ -100,10 +105,9 @@ void setup() {
   }
 
 #if defined(RADIO_RX_PIN) && defined(RADIO_TX_PIN)
-  //Set ANT Control pins
+  // Set ANT Control pins
   radio.setRfSwitchPins(RADIO_RX_PIN, RADIO_TX_PIN);
 #endif
-
 
 #ifdef LILYGO_T3_S3_V1_0
   // T3 S3 V1.1 with PA Version Set output power to 3 dBm    !!Cannot be greater than 3dbm!!
@@ -112,35 +116,40 @@ void setup() {
   // T3 S3 V1.2 (No PA) Version Set output power to 3 dBm    !!Cannot be greater than 3dbm!!
   int8_t TX_Power = 3;
 #endif
-  if (radio.setOutputPower(TX_Power) == RADIOLIB_ERR_INVALID_OUTPUT_POWER) {
+  if (radio.setOutputPower(TX_Power) == RADIOLIB_ERR_INVALID_OUTPUT_POWER)
+  {
     Serial.println(F("Selected output power is invalid for this module!"));
     while (true)
       ;
   }
 
   // set carrier frequency to 2410.5 MHz
-  if (radio.setFrequency(2400.0) == RADIOLIB_ERR_INVALID_FREQUENCY) {
+  if (radio.setFrequency(2400.0) == RADIOLIB_ERR_INVALID_FREQUENCY)
+  {
     Serial.println(F("Selected frequency is invalid for this module!"));
     while (true)
       ;
   }
 
   // set bandwidth to 203.125 kHz
-  if (radio.setBandwidth(203.125) == RADIOLIB_ERR_INVALID_BANDWIDTH) {
+  if (radio.setBandwidth(203.125) == RADIOLIB_ERR_INVALID_BANDWIDTH)
+  {
     Serial.println(F("Selected bandwidth is invalid for this module!"));
     while (true)
       ;
   }
 
   // set spreading factor to 10
-  if (radio.setSpreadingFactor(10) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR) {
+  if (radio.setSpreadingFactor(10) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR)
+  {
     Serial.println(F("Selected spreading factor is invalid for this module!"));
     while (true)
       ;
   }
 
   // set coding rate to 6
-  if (radio.setCodingRate(6) == RADIOLIB_ERR_INVALID_CODING_RATE) {
+  if (radio.setCodingRate(6) == RADIOLIB_ERR_INVALID_CODING_RATE)
+  {
     Serial.println(F("Selected coding rate is invalid for this module!"));
     while (true)
       ;
@@ -152,9 +161,12 @@ void setup() {
   // start listening for LoRa packets
   Serial.print(F("[SX1280] Starting to listen ... "));
   state = radio.startReceive();
-  if (state == RADIOLIB_ERR_NONE) {
+  if (state == RADIOLIB_ERR_NONE)
+  {
     Serial.println(F("success!"));
-  } else {
+  }
+  else
+  {
     Serial.print(F("failed, code "));
     Serial.println(state);
     while (true)
@@ -162,10 +174,11 @@ void setup() {
   }
 }
 
-
-void loop() {
+void loop()
+{
   // check if the flag is set
-  if (receivedFlag) {
+  if (receivedFlag)
+  {
     // disable the interrupt service routine while
     // processing the data
     enableInterrupt = false;
@@ -177,20 +190,23 @@ void loop() {
     byte byteArr[6];
     int state = radio.readData(byteArr, 6);
 
-    if (state == RADIOLIB_ERR_NONE) {
+    if (state == RADIOLIB_ERR_NONE)
+    {
       // packet was successfully received
       Serial.println(F("[SX1280] Received packet!"));
 
       // get rssi to determine if device is in range
       int rssi = radio.getRSSI();
 
-      if (rssi>=-30) { // todo: change to appropriate range
+      if (rssi >= -30)
+      { // todo: change to appropriate range
 
         // calculate next tial position
         int nextTail = (tail + 1) % BUFFER_SIZE;
 
         // check if buffer is full
-        if (nextTail == head) {
+        if (nextTail == head)
+        {
           Serial.println("[SX1280] Buffer full, dropping oldest packet.");
           // update head to point to next packet to be overwritten
           head = (head + 1) % BUFFER_SIZE;
@@ -202,11 +218,13 @@ void loop() {
 
         // print to check
         Serial.println(F("[SX1280] Buffer contents:"));
-        for (int i = head; i != tail; i = (i + 1) % BUFFER_SIZE) {
+        for (int i = head; i != tail; i = (i + 1) % BUFFER_SIZE)
+        {
           Serial.print(F("  Packet "));
           Serial.print(i);
           Serial.print(F(": "));
-          for (int j = 0; j < 6; j++) {
+          for (int j = 0; j < 6; j++)
+          {
             Serial.print(F("0x"));
             Serial.print(buffer[i][j], HEX);
             Serial.print(F(" "));
@@ -217,25 +235,31 @@ void loop() {
         // TODO: send buffer to server via mqtt
         // Convert received byteArr to HEX string for JSON payload
         String macAddress;
-        for (int i = 0; i < 6; i++) {
-          if (i > 0) macAddress += ":";
+        for (int i = 0; i < 6; i++)
+        {
+          if (i > 0)
+            macAddress += ":";
           macAddress += String(byteArr[i], HEX);
         }
 
         // Create JSON object string
-        String jsonData = "{\"mac\": \"" + macAddress + "\", \"timestamp\": " + String(millis()) + "}";
+        String jsonData = "{\"mac\": \"" + macAddress + "\", \"rssi\": " + String(rssi) + ", \"timestamp\": " + String(millis()) + "}";
 
         // Send JSON data to server
-        if (WiFi.status() == WL_CONNECTED) {
+        if (WiFi.status() == WL_CONNECTED)
+        {
           HTTPClient http;
           http.begin(serverUrl);
           http.addHeader("Content-Type", "application/json");
           int httpResponseCode = http.POST(jsonData);
 
-          if (httpResponseCode > 0) {
+          if (httpResponseCode > 0)
+          {
             String response = http.getString();
             Serial.println("Server responded: " + response);
-          } else {
+          }
+          else
+          {
             Serial.print("Error on sending POST: ");
             Serial.println(httpResponseCode);
           }
@@ -245,7 +269,8 @@ void loop() {
 
         // print data of the packet
         Serial.print(F("[SX1280] Data:\t\t"));
-        for (int i = 0; i < sizeof(byteArr); i++) {
+        for (int i = 0; i < sizeof(byteArr); i++)
+        {
           Serial.println(byteArr[i]);
         }
 
@@ -259,7 +284,8 @@ void loop() {
         Serial.print(radio.getSNR());
         Serial.println(F(" dB"));
 
-        if (u8g2) {
+        if (u8g2)
+        {
           u8g2->clearBuffer();
           char buf[256];
           u8g2->drawStr(0, 12, "Received OK!");
@@ -271,12 +297,14 @@ void loop() {
           u8g2->drawStr(0, 54, buf);
           u8g2->sendBuffer();
         }
-
-      } else {
+      }
+      else
+      {
         // Packet is outside desired range, ignore it
         Serial.println(F("[SX1280] Received packet outside range, ignoring."));
 
-        if (u8g2) {
+        if (u8g2)
+        {
           u8g2->clearBuffer();
           char buf[256];
           u8g2->drawStr(0, 12, "Received IGNORE!");
@@ -289,12 +317,14 @@ void loop() {
           u8g2->sendBuffer();
         }
       }
-
-    } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
+    }
+    else if (state == RADIOLIB_ERR_CRC_MISMATCH)
+    {
       // packet was received, but is malformed
       Serial.println(F("[SX1280] CRC error!"));
-
-    } else {
+    }
+    else
+    {
       // some other error occurred
       Serial.print(F("[SX1280] Failed, code "));
       Serial.println(state);
