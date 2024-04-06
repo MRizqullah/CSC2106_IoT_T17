@@ -34,18 +34,18 @@ def receive_data():
             # Update tagging if the watch is not already tagged to a BLE node
             if mac_address not in watch_nodes or rssi > watch_nodes[mac_address]['rssi']:
                 watch_nodes[mac_address] = {'type': 'LoRa', 'rssi': rssi, 'node_mac': node_mac}
-                socketio.emit('tag_update', {'mac_address': mac_address, 'node_type': 'LoRa', 'rssi': rssi, 'node_mac': node_mac})
+                socketio.emit('tag_update', {'mac_address': mac_address, 'node_type': 'LoRa', 'rssi': rssi, 'node_mac': node_mac}, namespace='/')
 
         if mac_address in watch_nodes and watch_nodes[mac_address]['type'] == 'LoRa':
             old_node_mac = watch_nodes[mac_address]['node_mac']
             if old_node_mac != node_mac:
                 node_devices[old_node_mac].discard(mac_address)
-                socketio.emit('device_count_update', {'node_mac': old_node_mac, 'count': len(node_devices[old_node_mac])})
+                socketio.emit('device_count_update', {'node_mac': node_mac, 'count': len(node_devices[node_mac])}, namespace='/')
             
         if node_mac not in node_devices:
             node_devices[node_mac] = set()
         node_devices[node_mac].add(mac_address)
-        socketio.emit('device_count_update', {'node_mac': node_mac, 'count': len(node_devices[node_mac])})
+        socketio.emit('device_count_update', {'node_mac': node_mac, 'count': len(node_devices[node_mac])}, namespace='/')
 
         return jsonify({"status": "success", "message": "Data received"})
     except KeyError as e:
@@ -65,13 +65,13 @@ def receive_ble_data():
         
         # Tag the watch to the BLE node regardless of RSSI value
         watch_nodes[mac_address] = {'type': 'BLE', 'rssi': rssi}
-        socketio.emit('tag_update', {'mac_address': mac_address, 'node_type': 'BLE', 'rssi': rssi})
+        socketio.emit('tag_update', {'mac_address': mac_address, 'node_type': 'BLE', 'rssi': rssi}, namespace='/')
 
         node_mac = device['boardName']
         if node_mac not in node_devices:
             node_devices[node_mac] = set()
         node_devices[node_mac].add(mac_address)
-        socketio.emit('device_count_update', {'node_mac': node_mac, 'count': len(node_devices[node_mac])})
+        socketio.emit('device_count_update', {'node_mac': node_mac, 'count': len(node_devices[node_mac])}, namespace='/')
     
     return jsonify({"status": "success", "message": "BLE data received"})
 
