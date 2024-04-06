@@ -6,90 +6,73 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
 socketio = SocketIO(app)
 
-indoor_devices = set()
-outdoor_devices = set()
-ble_devices = set()
+watch_nodes = {}  # Dictionary to store the mapping of watches to their tagged nodes
+node_devices = {}  # Dictionary to store the number of devices connected to each node
 
 @app.route('/')
 def dashboard():
-    return render_template('dashboard.html')
+    return render_template('dashboard.html', watch_nodes=watch_nodes, node_devices=node_devices)
 
 @socketio.on('connect')
 def handle_connect():
-    emit('device_update', {'indoor': len(indoor_devices), 'outdoor': len(outdoor_devices)})
+    print('Client connected')
+    emit('initialize', {'watch_nodes': watch_nodes, 'node_devices': node_devices})
 
-@socketio.on('device_signal')
-def handle_device_signal(data):
-    device_id = data['device_id']
-    indoor_signal = data['indoor_signal']
-    outdoor_signal = data['outdoor_signal']
-
-    if indoor_signal > outdoor_signal:
-        indoor_devices.add(device_id)
-        outdoor_devices.discard(device_id)
-    else:
-        outdoor_devices.add(device_id)
-        indoor_devices.discard(device_id)
-
-    emit('device_update', {'indoor': len(indoor_devices), 'outdoor': len(outdoor_devices)}, broadcast=True)
-    emit('signal_update', {'indoor_signal': indoor_signal, 'outdoor_signal': outdoor_signal}, broadcast=True)
-
-@app.route('/device_signal', methods=['POST'])
-def handle_device_signal_post():
-    data = request.get_json()
-    device_id = data['device_id']
-    indoor_signal = data['indoor_signal']
-    outdoor_signal = data['outdoor_signal']
-
-    if indoor_signal > outdoor_signal:
-        indoor_devices.add(device_id)
-        outdoor_devices.discard(device_id)
-    else:
-        outdoor_devices.add(device_id)
-        indoor_devices.discard(device_id)
-
-    socketio.emit('device_update', {'indoor': len(indoor_devices), 'outdoor': len(outdoor_devices)}, broadcast=True)
-    socketio.emit('signal_update', {'indoor_signal': indoor_signal, 'outdoor_signal': outdoor_signal}, broadcast=True)
-    return 'OK'
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
 
 @app.route('/api/data', methods=['POST'])
 def receive_data():
-    data = request.get_json()
-    print("Received data:", data)
+    try:
+        data = request.get_json()
+        mac_address = data['mac']
+        rssi = data['rssi']
+        node_mac = data['node_mac']  # Get the node_mac from the payload
+        
+        if mac_address not in watch_nodes or watch_nodes[mac_address]['type'] != 'BLE':
+            # Update tagging if the watch is not already tagged to a BLE node
+            if mac_address not in watch_nodes or rssi > watch_nodes[mac_address]['rssi']:
+                watch_nodes[mac_address] = {'type': 'LoRa', 'rssi': rssi, 'node_mac': node_mac}
+                socketio.emit('tag_update', {'mac_address': mac_address, 'node_type': 'LoRa', 'rssi': rssi, 'node_mac': node_mac})
 
-    device_mac = data['mac']
-    rssi = data['rssi']
+        if mac_address in watch_nodes and watch_nodes[mac_address]['type'] == 'LoRa':
+            old_node_mac = watch_nodes[mac_address]['node_mac']
+            if old_node_mac != node_mac:
+                node_devices[old_node_mac].discard(mac_address)
+                socketio.emit('device_count_update', {'node_mac': old_node_mac, 'count': len(node_devices[old_node_mac])})
+            
+        if node_mac not in node_devices:
+            node_devices[node_mac] = set()
+        node_devices[node_mac].add(mac_address)
+        socketio.emit('device_count_update', {'node_mac': node_mac, 'count': len(node_devices[node_mac])})
 
-    if rssi >= -30:
-        indoor_devices.add(device_mac)
-        outdoor_devices.discard(device_mac)
-    else:
-        outdoor_devices.add(device_mac)
-        indoor_devices.discard(device_mac)
-
-    socketio.emit('device_update', {'indoor': len(indoor_devices), 'outdoor': len(outdoor_devices)})
-    socketio.emit('signal_update', {'mac_address': device_mac, 'rssi': rssi})
-
-    return jsonify({"status": "success", "message": "Data received"})
+        return jsonify({"status": "success", "message": "Data received"})
+    except KeyError as e:
+        print(f"Missing key in data: {str(e)}")
+        return jsonify({"status": "error", "message": "Missing key in data"}), 400
+    except Exception as e:
+        print(f"Error in /api/data route: {str(e)}")
+        return jsonify({"status": "error", "message": "Internal Server Error"}), 500
 
 @app.route('/api/ble_data', methods=['POST'])
 def receive_ble_data():
     data = request.get_json()
-    print("Received BLE data:", data)
-
+    
     for device in data:
-        device_mac = device['mac_address']
+        mac_address = device['mac_address']
         rssi = device['rssi']
-        board_name = device['boardName']
+        
+        # Tag the watch to the BLE node regardless of RSSI value
+        watch_nodes[mac_address] = {'type': 'BLE', 'rssi': rssi}
+        socketio.emit('tag_update', {'mac_address': mac_address, 'node_type': 'BLE', 'rssi': rssi})
 
-        if rssi >= -30:
-            ble_devices.add(device_mac)
-        else:
-            ble_devices.discard(device_mac)
-
-    socketio.emit('ble_device_update', {'ble_devices': len(ble_devices)})
-    socketio.emit('ble_signal_update', {'mac_address': device_mac, 'rssi': rssi, 'board_name': board_name})
-
+        node_mac = device['boardName']
+        if node_mac not in node_devices:
+            node_devices[node_mac] = set()
+        node_devices[node_mac].add(mac_address)
+        socketio.emit('device_count_update', {'node_mac': node_mac, 'count': len(node_devices[node_mac])})
+    
     return jsonify({"status": "success", "message": "BLE data received"})
 
 if __name__ == '__main__':
