@@ -43,38 +43,24 @@
       const socket = io();
       const map = document.getElementById("map");
 
-      socket.on("initialize", function (data) {
-        // Clear existing nodes
-        map.innerHTML = "";
+      {% for mac_address, node_data in watch_nodes.items() %}
+        const node = document.createElement("div");
+        node.classList.add("node");
+        node.classList.add("{{ node_data.type.lower() }}");
+        node.setAttribute("data-mac", "{{ mac_address }}");
+        node.textContent = "{{ mac_address }}";
+        map.appendChild(node);
 
-        // Add nodes based on the received data
-        for (const mac_address in data.watch_nodes) {
-          const node_data = data.watch_nodes[mac_address];
-          const node = document.createElement("div");
-          node.classList.add("node");
-          node.classList.add(node_data.type.toLowerCase());
-          node.setAttribute("data-mac", mac_address);
-          node.textContent = mac_address;
-          map.appendChild(node);
-
-          const deviceCount = document.createElement("div");
-          deviceCount.classList.add("device-count");
-          deviceCount.textContent = data.node_devices[node_data.node_mac]
-            ? data.node_devices[node_data.node_mac].size
-            : "0";
-          node.appendChild(deviceCount);
-        }
-      });
+        const deviceCount = document.createElement("div");
+        deviceCount.classList.add("device-count");
+        deviceCount.textContent = "{{ node_devices.get(node_data.node_mac, [])|length }}";
+        node.appendChild(deviceCount);
+      {% endfor %}
 
       socket.on("tag_update", function (data) {
-        const nodeElement = document.querySelector(
-          `[data-mac="${data.mac_address}"]`
-        );
+        const nodeElement = document.querySelector(`[data-mac="${data.mac_address}"]`);
         if (nodeElement) {
-          nodeElement.setAttribute(
-            "data-node-type",
-            data.node_type.toLowerCase()
-          );
+          nodeElement.setAttribute("data-node-type", data.node_type.toLowerCase());
           nodeElement.classList.remove("lora", "ble");
           nodeElement.classList.add(data.node_type.toLowerCase());
         } else {
@@ -93,15 +79,24 @@
         }
       });
 
-      socket.on("device_count_update", function (data) {
-        const nodeElement = document.querySelector(
-          `[data-mac="${data.node_mac}"]`
-        );
+      // Debounce function
+      function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+      }
+
+      const debouncedDeviceCountUpdate = debounce(function(data) {
+        const nodeElement = document.querySelector(`[data-mac="${data.node_mac}"]`);
         if (nodeElement) {
           const deviceCountElement = nodeElement.querySelector(".device-count");
           deviceCountElement.textContent = data.count;
         }
-      });
+      }, 100); // Adjust the debounce time as needed
+
+      socket.on("device_count_update", debouncedDeviceCountUpdate);
     </script>
   </body>
 </html>

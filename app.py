@@ -1,26 +1,30 @@
+import eventlet
+eventlet.monkey_patch()
+
 from flask import Flask, render_template, request, jsonify
-from flask_socketio import SocketIO, emit
-import random
+from flask_socketio import SocketIO
+from pydash import throttle
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_mode='eventlet')
 
-watch_nodes = {}  # Dictionary to store the mapping of watches to their tagged nodes
-node_devices = {}  # Dictionary to store the number of devices connected to each node
+watch_nodes = {}
+node_devices = {}
 
 @app.route('/')
 def dashboard():
     return render_template('dashboard.html', watch_nodes=watch_nodes, node_devices=node_devices)
 
-@socketio.on('connect')
-def handle_connect():
-    print('Client connected')
-    emit('initialize', {'watch_nodes': watch_nodes, 'node_devices': node_devices})
+def emit_tag_update(mac_address, node_type, rssi, node_mac):
+    socketio.emit('tag_update', {'mac_address': mac_address, 'node_type': node_type, 'rssi': rssi, 'node_mac': node_mac}, namespace='/')
 
-@socketio.on('disconnect')
-def handle_disconnect():
-    print('Client disconnected')
+def emit_device_count_update(node_mac, count):
+    socketio.emit('device_count_update', {'node_mac': node_mac, 'count': count}, namespace='/')
+
+# Increased throttle duration to 2 seconds
+throttled_tag_update = throttle(emit_tag_update, 2)
+throttled_device_count_update = throttle(emit_device_count_update, 2)
 
 @app.route('/api/data', methods=['POST'])
 def receive_data():
@@ -28,24 +32,23 @@ def receive_data():
         data = request.get_json()
         mac_address = data['mac']
         rssi = data['rssi']
-        node_mac = data['node_mac']  # Get the node_mac from the payload
+        node_mac = data['node_mac']
         
         if mac_address not in watch_nodes or watch_nodes[mac_address]['type'] != 'BLE':
-            # Update tagging if the watch is not already tagged to a BLE node
             if mac_address not in watch_nodes or rssi > watch_nodes[mac_address]['rssi']:
                 watch_nodes[mac_address] = {'type': 'LoRa', 'rssi': rssi, 'node_mac': node_mac}
-                socketio.emit('tag_update', {'mac_address': mac_address, 'node_type': 'LoRa', 'rssi': rssi, 'node_mac': node_mac}, namespace='/')
+                throttled_tag_update(mac_address, 'LoRa', rssi, node_mac)
 
         if mac_address in watch_nodes and watch_nodes[mac_address]['type'] == 'LoRa':
             old_node_mac = watch_nodes[mac_address]['node_mac']
             if old_node_mac != node_mac:
                 node_devices[old_node_mac].discard(mac_address)
-                socketio.emit('device_count_update', {'node_mac': node_mac, 'count': len(node_devices[node_mac])}, namespace='/')
+                throttled_device_count_update(old_node_mac, len(node_devices[old_node_mac]))
             
         if node_mac not in node_devices:
             node_devices[node_mac] = set()
         node_devices[node_mac].add(mac_address)
-        socketio.emit('device_count_update', {'node_mac': node_mac, 'count': len(node_devices[node_mac])}, namespace='/')
+        throttled_device_count_update(node_mac, len(node_devices[node_mac]))
 
         return jsonify({"status": "success", "message": "Data received"})
     except KeyError as e:
@@ -63,15 +66,14 @@ def receive_ble_data():
         mac_address = device['mac_address']
         rssi = device['rssi']
         
-        # Tag the watch to the BLE node regardless of RSSI value
         watch_nodes[mac_address] = {'type': 'BLE', 'rssi': rssi}
-        socketio.emit('tag_update', {'mac_address': mac_address, 'node_type': 'BLE', 'rssi': rssi}, namespace='/')
+        throttled_tag_update(mac_address, 'BLE', rssi, None)
 
         node_mac = device['boardName']
         if node_mac not in node_devices:
             node_devices[node_mac] = set()
         node_devices[node_mac].add(mac_address)
-        socketio.emit('device_count_update', {'node_mac': node_mac, 'count': len(node_devices[node_mac])}, namespace='/')
+        throttled_device_count_update(node_mac, len(node_devices[node_mac]))
     
     return jsonify({"status": "success", "message": "BLE data received"})
 
