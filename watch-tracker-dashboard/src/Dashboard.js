@@ -14,14 +14,13 @@ function Dashboard() {
       setWatchNodes((prevWatchNodes) => {
         const updatedWatchNodes = {
           ...prevWatchNodes,
-          [data.mac_address]: {
-            ...data,
+          [data.node_mac]: {
             type: data.node_type,
             rssi: data.rssi,
             nodeMac: data.node_mac,
+            count: data.count,
           },
         };
-        console.log("Updated watchNodes:", updatedWatchNodes);
         return updatedWatchNodes;
       });
     });
@@ -39,7 +38,7 @@ function Dashboard() {
         {Object.entries(watchNodes).map(([nodeMac, node]) => (
           <div
             key={nodeMac}
-            className={`node ${node.node_type.toLowerCase()}`}
+            className={`node ${node.type.toLowerCase()}`}
             data-mac={nodeMac}
           >
             Node MAC: {nodeMac}

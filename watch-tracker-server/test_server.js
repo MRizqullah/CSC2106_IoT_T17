@@ -20,48 +20,47 @@ function randomInRange(min, max) {
 }
 
 function simulateWatchConnection(watchMac) {
-  setInterval(async () => {
-    const nodeType = Math.random() > 0.5 ? "LoRa" : "BLE";
+  const nodeType = Math.random() > 0.5 ? "LoRa" : "BLE";
+  const node =
+    nodeType === "LoRa"
+      ? loraNodes[Math.floor(Math.random() * loraNodes.length)]
+      : bleNodes[Math.floor(Math.random() * bleNodes.length)];
+  const rssi = randomInRange(node.rssiRange[0], node.rssiRange[1]);
+  const data =
+    nodeType === "LoRa"
+      ? {
+          mac: watchMac,
+          rssi: rssi,
+          node_mac: node.mac,
+        }
+      : {
+          mac_address: watchMac,
+          rssi: rssi,
+          boardName: node.mac,
+        };
+  const url =
+    nodeType === "LoRa"
+      ? `${nodeServerUrl}/api/data`
+      : `${nodeServerUrl}/api/ble_data`;
 
-    if (nodeType === "LoRa") {
-      const node = loraNodes[Math.floor(Math.random() * loraNodes.length)];
-      const rssi = randomInRange(node.rssiRange[0], node.rssiRange[1]);
-      const loraData = {
-        mac: watchMac,
-        rssi: rssi,
-        node_mac: node.mac,
-      };
-      try {
-        const response = await axios.post(
-          `${nodeServerUrl}/api/data`,
-          loraData
-        );
-        console.log(
-          `Watch ${watchMac} connected to LoRa node ${node.mac}. RSSI: ${rssi}. Response: ${response.data.message}`
-        );
-      } catch (error) {
-        console.error(`Error sending data to server: ${error.message}`);
-      }
-    } else {
-      const node = bleNodes[Math.floor(Math.random() * bleNodes.length)];
-      const rssi = randomInRange(node.rssiRange[0], node.rssiRange[1]);
-      const bleData = {
-        mac_address: watchMac,
-        rssi: rssi,
-        boardName: node.mac,
-      };
-      try {
-        const response = await axios.post(`${nodeServerUrl}/api/ble_data`, [
-          bleData,
-        ]);
-        console.log(
-          `Watch ${watchMac} connected to BLE node ${node.mac}. RSSI: ${rssi}. Response: ${response.data.message}`
-        );
-      } catch (error) {
-        console.error(`Error sending data to server: ${error.message}`);
-      }
-    }
-  }, randomInRange(3000, 10000));
+  axios
+    .post(url, nodeType === "BLE" ? [data] : data)
+    .then((response) => {
+      console.log(
+        `Watch ${watchMac} connected to ${nodeType} node ${node.mac}. RSSI: ${rssi}. Response: ${response.data.message}`
+      );
+      setTimeout(
+        () => simulateWatchConnection(watchMac),
+        randomInRange(3000, 10000)
+      ); // Recursively call the function after a random delay
+    })
+    .catch((error) => {
+      console.error(`Error sending data to server: ${error.message}`);
+      setTimeout(
+        () => simulateWatchConnection(watchMac),
+        randomInRange(3000, 10000)
+      ); // Recursively call the function even if there's an error
+    });
 }
 
 function main() {
