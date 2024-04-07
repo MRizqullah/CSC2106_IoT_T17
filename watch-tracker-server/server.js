@@ -18,59 +18,95 @@ const io = socketIo(server, {
   },
 });
 
-const watchNodes = {};
-const nodeDevices = {};
+let watchNodes = {};
+let nodeDevices = {};
+let nodeConnections = {};
 
 app.use(express.json());
 
-app.post("/api/data", (req, res) => {
-  // Process incoming data from LoRa devices (similar to your Flask route)
-  const { mac, rssi, node_mac } = req.body;
-  // Update watchNodes and nodeDevices as in your Flask app
-  // Emit updates to clients
-  io.emit("tag_update", {
-    mac_address: mac,
-    node_type: "LoRa",
-    rssi: rssi,
-    node_mac: node_mac,
+function sendCurrentState(socket) {
+  Object.entries(nodeDevices).forEach(([mac, node]) => {
+    socket.emit("tag_update", {
+      mac_address: mac,
+      node_type: node.node_type,
+      rssi: node.rssi,
+      node_mac: node.node_mac,
+    });
   });
-  console.log("Emitted tag_update:", {
-    mac_address: mac,
+}
+
+app.post("/api/data", (req, res) => {
+  const { mac, rssi, node_mac } = req.body;
+
+  // Update nodeDevices
+  nodeDevices[node_mac] = {
     node_type: "LoRa",
     rssi: rssi,
     node_mac: node_mac,
+  };
+
+  // Update watchNodes count
+  if (!nodeConnections[node_mac]) {
+    nodeConnections[node_mac] = new Set();
+  }
+  if (!nodeConnections[node_mac].has(mac)) {
+    nodeConnections[node_mac].add(mac);
+    watchNodes[node_mac] = {
+      node_type: "LoRa",
+      count: nodeConnections[node_mac].size,
+    };
+  }
+
+  // Emit updates to clients with the count
+  io.emit("tag_update", {
+    node_mac: node_mac,
+    node_type: "LoRa",
+    rssi: rssi,
+    count: watchNodes[node_mac].count,
   });
 
-  // Respond to the request
   res.json({ status: "success", message: "Data received" });
 });
 
 app.post("/api/ble_data", (req, res) => {
-  // Process incoming data from BLE devices (similar to your Flask route)
   const data = req.body;
-  // Update watchNodes and nodeDevices as in your Flask app
-  // Emit updates to clients
   data.forEach((device) => {
     const { mac_address, rssi, boardName } = device;
+
+    // Update nodeDevices
+    nodeDevices[boardName] = {
+      node_type: "BLE",
+      rssi: rssi,
+      node_mac: boardName,
+    };
+
+    // Update watchNodes count
+    if (!nodeConnections[boardName]) {
+      nodeConnections[boardName] = new Set();
+    }
+    if (!nodeConnections[boardName].has(mac_address)) {
+      nodeConnections[boardName].add(mac_address);
+      watchNodes[boardName] = {
+        node_type: "BLE",
+        count: nodeConnections[boardName].size,
+      };
+    }
+
+    // Emit updates to clients with the count
     io.emit("tag_update", {
-      mac_address: mac_address,
+      node_mac: boardName,
       node_type: "BLE",
       rssi: rssi,
-      node_mac: boardName,
-    });
-    console.log("Emitted tag_update:", {
-      mac_address: mac_address,
-      node_type: "BLE",
-      rssi: rssi,
-      node_mac: boardName,
+      count: watchNodes[boardName].count,
     });
   });
-  // Respond to the request
+
   res.json({ status: "success", message: "BLE data received" });
 });
 
 io.on("connection", (socket) => {
   console.log("A client connected");
+  sendCurrentState(socket); // Send the current state to the newly connected client
 });
 
 server.listen(5000, () => {

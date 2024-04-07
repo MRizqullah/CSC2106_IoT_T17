@@ -36,16 +36,14 @@ function Dashboard() {
     <div>
       <h1>Watch Tracker Dashboard</h1>
       <div id="map">
-        {Object.entries(watchNodes).map(([mac, node]) => (
+        {Object.entries(watchNodes).map(([nodeMac, node]) => (
           <div
-            key={mac}
-            className={`node ${node.type.toLowerCase()}`}
-            data-mac={mac}
+            key={nodeMac}
+            className={`node ${node.node_type.toLowerCase()}`}
+            data-mac={nodeMac}
           >
-            {mac}
-            <div className="device-count">
-              Count: {/* Add device count logic here */}
-            </div>
+            Node MAC: {nodeMac}
+            <div className="device-count">Count: {node.count || 0}</div>
           </div>
         ))}
       </div>
