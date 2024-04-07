@@ -1,7 +1,6 @@
 const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
-
 const app = express();
 const server = http.createServer(app);
 const cors = require("cors");
@@ -26,54 +25,47 @@ function sendCurrentState(socket) {
       node_mac: nodeMac,
       node_type: node.node_type,
       rssi: node.rssi,
-      count: watchNodes[nodeMac]?.count || 0, // Provide a default value of 0 for count
+      count: watchNodes[nodeMac]?.count || 0,
     });
   });
 }
 
+function updateNodeCounts(watchMac, newNodeMac) {
+  const currentNodeMac = watchCurrentNode[watchMac];
+  if (currentNodeMac && currentNodeMac !== newNodeMac) {
+    watchNodes[currentNodeMac].count = Math.max(
+      0,
+      watchNodes[currentNodeMac].count - 1
+    );
+  }
+  watchNodes[newNodeMac].count++;
+  watchCurrentNode[watchMac] = newNodeMac;
+}
+
 app.post("/api/data", (req, res) => {
   const { mac, rssi, node_mac } = req.body;
-
   if (
     !watchCurrentNode[mac] ||
-    (watchCurrentNode[mac].node_type === "LoRa" &&
-      rssi > watchCurrentNode[mac].rssi)
+    (watchCurrentNode[mac] !== node_mac &&
+      rssi > nodeDevices[watchCurrentNode[mac]]?.rssi)
   ) {
-    if (
-      watchCurrentNode[mac] &&
-      watchNodes[watchCurrentNode[mac].node_mac] &&
-      watchCurrentNode[mac].node_mac !== node_mac
-    ) {
-      watchNodes[watchCurrentNode[mac].node_mac].count = Math.max(
-        0,
-        watchNodes[watchCurrentNode[mac].node_mac].count - 1
-      );
-    }
-    watchCurrentNode[mac] = {
-      node_type: "LoRa",
-      rssi: rssi,
-      node_mac: node_mac,
-    };
     watchNodes[node_mac] = watchNodes[node_mac] || {
       count: 0,
       node_type: "LoRa",
     };
-    watchNodes[node_mac].count++;
+    updateNodeCounts(mac, node_mac);
   }
-
   nodeDevices[node_mac] = {
     node_type: "LoRa",
     rssi: rssi,
     node_mac: node_mac,
   };
-
   io.emit("tag_update", {
     node_mac: node_mac,
     node_type: "LoRa",
     rssi: rssi,
-    count: watchNodes[node_mac]?.count || 0, // Provide a default value of 0 for count
+    count: watchNodes[node_mac]?.count || 0,
   });
-
   res.json({ status: "success", message: "Data received" });
 });
 
@@ -83,28 +75,14 @@ app.post("/api/ble_data", (req, res) => {
     const { mac_address, rssi } = device;
     if (
       !watchCurrentNode[mac_address] ||
-      watchCurrentNode[mac_address].node_type !== "BLE" ||
-      rssi > watchCurrentNode[mac_address].rssi
+      (watchCurrentNode[mac_address] !== mac_address &&
+        rssi > nodeDevices[watchCurrentNode[mac_address]]?.rssi)
     ) {
-      if (
-        watchCurrentNode[mac_address] &&
-        watchNodes[watchCurrentNode[mac_address].node_mac]
-      ) {
-        watchNodes[watchCurrentNode[mac_address].node_mac].count = Math.max(
-          0,
-          (watchNodes[watchCurrentNode[mac_address].node_mac].count || 0) - 1
-        );
-      }
-      watchCurrentNode[mac_address] = {
-        node_type: "BLE",
-        rssi: rssi,
-        node_mac: mac_address,
-      };
       watchNodes[mac_address] = watchNodes[mac_address] || {
         count: 0,
         node_type: "BLE",
       };
-      watchNodes[mac_address].count++;
+      updateNodeCounts(mac_address, mac_address);
     }
     nodeDevices[mac_address] = {
       node_type: "BLE",
@@ -115,7 +93,7 @@ app.post("/api/ble_data", (req, res) => {
       node_mac: mac_address,
       node_type: "BLE",
       rssi: rssi,
-      count: watchNodes[mac_address]?.count || 0, // Provide a default value of 0 for count
+      count: watchNodes[mac_address]?.count || 0,
     });
   });
   res.json({ status: "success", message: "BLE data received" });
