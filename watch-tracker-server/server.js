@@ -37,9 +37,21 @@ function updateNodeCounts(watchMac, newNodeMac) {
       0,
       watchNodes[currentNodeMac].count - 1
     );
+    io.emit("tag_update", {
+      node_mac: currentNodeMac,
+      node_type: watchNodes[currentNodeMac].node_type,
+      rssi: nodeDevices[currentNodeMac]?.rssi || 0,
+      count: watchNodes[currentNodeMac].count,
+    });
   }
   watchNodes[newNodeMac].count++;
   watchCurrentNode[watchMac] = newNodeMac;
+  io.emit("tag_update", {
+    node_mac: newNodeMac,
+    node_type: watchNodes[newNodeMac].node_type,
+    rssi: nodeDevices[newNodeMac]?.rssi || 0,
+    count: watchNodes[newNodeMac].count,
+  });
 }
 
 app.post("/api/data", (req, res) => {

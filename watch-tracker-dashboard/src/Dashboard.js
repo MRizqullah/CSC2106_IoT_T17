@@ -10,6 +10,7 @@ function Dashboard() {
     socket.on("connect", () => {
       console.log("Connected to server");
     });
+
     socket.on("tag_update", (data) => {
       setWatchNodes((prevWatchNodes) => {
         const updatedWatchNodes = {
