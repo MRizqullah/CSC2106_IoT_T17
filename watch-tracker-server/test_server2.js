@@ -1,6 +1,4 @@
 const axios = require("axios");
-const randomMac = require("random-mac");
-
 const nodeServerUrl = "http://localhost:5000";
 
 const nodes = [
@@ -10,20 +8,16 @@ const nodes = [
   { mac: "aa:bb:cc:dd:ee:ff", rssiRange: [-45, -15], type: "BLE" },
 ];
 
-function randomInRange(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+const watchMac = "00:11:22:33:44:55";
 
-function simulateWatchThroughNodes(watchMac) {
-  let currentNodeIndex = 0;
+function simulateWatchThroughNodes() {
+  const sequence = [0, 1, 2, 3, 2, 1, 0];
+  let currentIndex = 0;
 
   function connectToNextNode() {
-    if (currentNodeIndex >= nodes.length) {
-      currentNodeIndex = 0; // Loop back to the first node
-    }
-
-    const node = nodes[currentNodeIndex];
-    const rssi = randomInRange(node.rssiRange[0], node.rssiRange[1]);
+    const nodeIndex = sequence[currentIndex];
+    const node = nodes[nodeIndex];
+    const rssi = node.rssiRange[0];
     const data =
       node.type === "LoRa"
         ? {
@@ -34,8 +28,9 @@ function simulateWatchThroughNodes(watchMac) {
         : {
             mac_address: watchMac,
             rssi: rssi,
-            boardName: node.mac,
+            node_mac: node.mac,
           };
+
     const url =
       node.type === "LoRa"
         ? `${nodeServerUrl}/api/data`
@@ -47,13 +42,13 @@ function simulateWatchThroughNodes(watchMac) {
         console.log(
           `Watch ${watchMac} connected to ${node.type} node ${node.mac}. RSSI: ${rssi}. Response: ${response.data.message}`
         );
-        currentNodeIndex++;
-        setTimeout(connectToNextNode, randomInRange(3000, 10000)); // Move to the next node after a random delay
+        currentIndex = (currentIndex + 1) % sequence.length;
+        setTimeout(connectToNextNode, 5000);
       })
       .catch((error) => {
         console.error(`Error sending data to server: ${error.message}`);
-        currentNodeIndex++;
-        setTimeout(connectToNextNode, randomInRange(3000, 10000)); // Move to the next node even if there's an error
+        currentIndex = (currentIndex + 1) % sequence.length;
+        setTimeout(connectToNextNode, 5000);
       });
   }
 
@@ -61,8 +56,7 @@ function simulateWatchThroughNodes(watchMac) {
 }
 
 function main() {
-  const watchMac = randomMac();
-  simulateWatchThroughNodes(watchMac);
+  simulateWatchThroughNodes();
 }
 
 main();
