@@ -72,28 +72,30 @@ app.post("/api/data", (req, res) => {
 app.post("/api/ble_data", (req, res) => {
   const data = req.body;
   data.forEach((device) => {
-    const { mac_address, rssi } = device;
+    const { mac_address, rssi, node_mac } = device; // Extract node_mac from the request body
     if (
       !watchCurrentNode[mac_address] ||
-      (watchCurrentNode[mac_address] !== mac_address &&
+      (watchCurrentNode[mac_address] !== node_mac && // Compare with node_mac instead of mac_address
         rssi > nodeDevices[watchCurrentNode[mac_address]]?.rssi)
     ) {
-      watchNodes[mac_address] = watchNodes[mac_address] || {
+      watchNodes[node_mac] = watchNodes[node_mac] || {
+        // Use node_mac as the key
         count: 0,
         node_type: "BLE",
       };
-      updateNodeCounts(mac_address, mac_address);
+      updateNodeCounts(mac_address, node_mac); // Pass node_mac as the second argument
     }
-    nodeDevices[mac_address] = {
+    nodeDevices[node_mac] = {
+      // Use node_mac as the key
       node_type: "BLE",
       rssi: rssi,
-      node_mac: mac_address,
+      node_mac: node_mac, // Store node_mac instead of mac_address
     };
     io.emit("tag_update", {
-      node_mac: mac_address,
+      node_mac: node_mac, // Emit node_mac instead of mac_address
       node_type: "BLE",
       rssi: rssi,
-      count: watchNodes[mac_address]?.count || 0,
+      count: watchNodes[node_mac]?.count || 0,
     });
   });
   res.json({ status: "success", message: "BLE data received" });
