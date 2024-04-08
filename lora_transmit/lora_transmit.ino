@@ -193,7 +193,7 @@ void loop()
         }
 
         // wait a second before transmitting again
-        delay(2);
+        delay(5000);
 
         // send another one
         Serial.print(F("[SX1280] Sending another packet ... "));
