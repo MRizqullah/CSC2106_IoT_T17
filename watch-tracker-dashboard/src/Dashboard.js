@@ -15,33 +15,39 @@ function Dashboard() {
 
     socket.on("tag_update", (data) => {
       setWatchNodes((prevWatchNodes) => {
-        const updatedWatchNodes = {
-          ...prevWatchNodes,
-          [data.node_mac]: {
+        const updatedWatchNodes = { ...prevWatchNodes };
+        if (data.count === 0) {
+          delete updatedWatchNodes[data.node_mac]; // Remove node if no devices are connected
+        } else {
+          updatedWatchNodes[data.node_mac] = {
             type: data.node_type,
             rssi: data.rssi,
             nodeMac: data.node_mac,
             count: data.count,
-          },
-        };
+          };
+        }
         return updatedWatchNodes;
       });
     });
 
-    const getNodePosition = (nodeMac) => {
-      // Simulated grid positions for demonstration
-      const positions = {
-        "00:11:22:33:44:55": { row: 1, col: 1 },
-        "11:22:33:44:55:66": { row: 2, col: 2 },
-        // Add more nodeMac to grid positions mapping as needed
-      };
-
-      return positions[nodeMac] || { row: 1, col: 1 }; // Default position
-    };
-
     socket.on("connection_update", (data) => {
       setConnectionsLog((prevLog) => [...prevLog, data]);
-      setActiveTaggings(data);
+      setActiveTaggings((prevTaggings) => {
+        const updatedTaggings = { ...prevTaggings };
+        Object.entries(data).forEach(([mac, details]) => {
+          if (details.rssi === 0) {
+            // Remove disconnected watch from active taggings
+            Object.entries(updatedTaggings).forEach(([nodeMac, tag]) => {
+              if (tag.mac === mac) {
+                delete updatedTaggings[nodeMac];
+              }
+            });
+          } else {
+            updatedTaggings[details.node_mac] = { mac, ...details };
+          }
+        });
+        return updatedTaggings;
+      });
     });
 
     return () => {
@@ -68,9 +74,9 @@ function Dashboard() {
       </div>
       <div id="active-taggings">
         <h2>Active Taggings</h2>
-        {Object.entries(activeTaggings).map(([mac, details]) => (
-          <div key={mac}>
-            MAC: {mac}, Node MAC: {details.node_mac}, RSSI: {details.rssi}
+        {Object.entries(activeTaggings).map(([nodeMac, details]) => (
+          <div key={nodeMac}>
+            MAC: {details.mac}, Node MAC: {nodeMac}, RSSI: {details.rssi}
           </div>
         ))}
       </div>
