@@ -2,6 +2,8 @@
 This project focuses on developing a watch tracker system with a monitoring dashboard, utilizing a combination of BLE and LoRa technologies for data transmission. The system includes BLE mesh nodes, LoRa nodes, a gateway node, and a Flask-based web server with Socket.IO for real-time updates.
 
 ## System Components:
+- Watch:
+   - IoT_Watch.ino: Implements a BLE Server using the Arduino ESP32 BLE library as well as LoRa broadcast using the Radiolib library.
 - BLE Mesh:
    - mesh.ino: Implements a BLE mesh network using PainlessMesh. Scans for BLE devices and transmits the collected data (MAC addresses and RSSI values) through the mesh network.
    - process.py: Processes data received from the BLE mesh network via serial communication and sends it to the Flask server.
