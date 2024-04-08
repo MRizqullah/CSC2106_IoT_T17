@@ -28,13 +28,15 @@
 
 // WiFi credentials and server URL
 const char *ssid = "Pixel_2658";
-const char *password = "IhateIOT";
+const char *password = "pw";
 const char *serverUrl = "http://192.168.243.241:5000/api/data"; // Adjust to your server's address
+//const char *serverUrl = "http://192.168.243.2:5000/api/data"; // Adjust to your server's address
+
 
 SX1280 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 
 #ifdef HAS_DISPLAY
-void displayMessage(const char* message, const byte* data, float rssi, float snr);
+void displayMessage(const char* message, const byte* data, float rssi, float snr, const char* myMac);
 #endif
 
 // flag to indicate that a packet was received
@@ -52,6 +54,8 @@ int tail = 0;                // Index where the next packet will be written
 // Timeout management
 unsigned long lastReceivedTime = 0;
 const unsigned long TIMEOUT = 10000; // 10 seconds timeout
+
+String gatewayMac = WiFi.macAddress();
 
 // this function is called when a complete packet
 // is received by the module
@@ -81,7 +85,6 @@ void setup()
     Serial.println("Connecting to WiFi...");
   }
   Serial.println("Connected to WiFi");
-  String gatewayMac = WiFi.macAddress();
   Serial.println("Gateway MAC Address: " + gatewayMac);
 
   initBoard();
@@ -187,7 +190,7 @@ void setup()
   lastReceivedTime = millis();
 }
 
-void displayMessage(const char* message, const byte* data, float rssi, float snr) {
+void displayMessage(const char* message, const byte* data, float rssi, float snr, const char* myMac) {
   #ifdef HAS_DISPLAY
     char buf[256];
     u8g2->clearBuffer();
@@ -199,6 +202,7 @@ void displayMessage(const char* message, const byte* data, float rssi, float snr
     u8g2->drawStr(0, 40, buf);
     snprintf(buf, sizeof(buf), "SNR: %.2f dB", snr);
     u8g2->drawStr(0, 54, buf);
+    u8g2->drawStr(0, 68, myMac);
     u8g2->sendBuffer();
   #endif
 }
@@ -315,7 +319,7 @@ void loop()
 
         if (u8g2)
         {
-          displayMessage("Received OK!", byteArr, radio.getRSSI(), radio.getSNR());
+          displayMessage("Received OK!", byteArr, radio.getRSSI(), radio.getSNR(), gatewayMac.c_str());
         }
       }
       else
@@ -325,7 +329,7 @@ void loop()
 
         if (u8g2)
         {
-          displayMessage("Received IGNORE!", byteArr, radio.getRSSI(), radio.getSNR());
+          displayMessage("Received IGNORE!", byteArr, radio.getRSSI(), radio.getSNR(), gatewayMac.c_str());
         }
       }
     }
@@ -351,7 +355,7 @@ void loop()
 
   if (millis() - lastReceivedTime > TIMEOUT) {
     Serial.println(F("[SX1280] Timeout on packet received."));
-    displayMessage("No Packets!", byteArr, radio.getRSSI(), radio.getSNR());
+    displayMessage("No Packets!", byteArr, radio.getRSSI(), radio.getSNR(), gatewayMac.c_str());
     lastReceivedTime = millis();
   }
 }
