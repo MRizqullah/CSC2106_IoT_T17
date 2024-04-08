@@ -61,46 +61,31 @@ app.post("/api/data", (req, res) => {
   console.log(
     `Data received from ${mac} at ${timestamp}: RSSI ${rssi}, Node MAC ${node_mac}`
   );
-  if (rssi == 0) {
-    // Assuming rssi == 0 indicates a disconnect
-    delete ongoingConnections[mac];
-    if (watchCurrentNode[mac] === node_mac) {
-      delete watchCurrentNode[mac];
-      watchNodes[node_mac].count = Math.max(0, watchNodes[node_mac].count - 1);
-      io.emit("tag_update", {
-        node_mac: node_mac,
-        node_type: watchNodes[node_mac].node_type,
-        rssi: 0,
-        count: watchNodes[node_mac].count,
-      });
-    }
-  } else {
-    ongoingConnections[mac] = { rssi, node_mac, timestamp };
-    io.emit("connection_update", ongoingConnections);
-    if (
-      !watchCurrentNode[mac] ||
-      (watchCurrentNode[mac] !== node_mac &&
-        rssi > nodeDevices[watchCurrentNode[mac]]?.rssi)
-    ) {
-      watchNodes[node_mac] = watchNodes[node_mac] || {
-        count: 0,
-        node_type: "LoRa",
-      };
-      updateNodeCounts(mac, node_mac);
-    }
-    nodeDevices[node_mac] = {
+  ongoingConnections[mac] = { rssi, node_mac, timestamp };
+  io.emit("connection_update", ongoingConnections);
+  if (
+    !watchCurrentNode[mac] ||
+    (watchCurrentNode[mac] !== node_mac &&
+      rssi > nodeDevices[watchCurrentNode[mac]]?.rssi)
+  ) {
+    watchNodes[node_mac] = watchNodes[node_mac] || {
+      count: 0,
       node_type: "LoRa",
-      rssi: rssi,
-      node_mac: node_mac,
     };
-    io.emit("tag_update", {
-      node_mac: node_mac,
-      node_type: "LoRa",
-      rssi: rssi,
-      count: watchNodes[node_mac]?.count || 0,
-    });
-    res.json({ status: "success", message: "Data received" });
+    updateNodeCounts(mac, node_mac);
   }
+  nodeDevices[node_mac] = {
+    node_type: "LoRa",
+    rssi: rssi,
+    node_mac: node_mac,
+  };
+  io.emit("tag_update", {
+    node_mac: node_mac,
+    node_type: "LoRa",
+    rssi: rssi,
+    count: watchNodes[node_mac]?.count || 0,
+  });
+  res.json({ status: "success", message: "Data received" });
 });
 
 app.post("/api/ble_data", (req, res) => {
@@ -110,50 +95,32 @@ app.post("/api/ble_data", (req, res) => {
     console.log(
       `BLE data received from ${mac_address} at ${timestamp}: RSSI ${rssi}, Node MAC ${node_mac}`
     );
-    if (rssi == 0) {
-      // Assuming rssi == 0 indicates a disconnect
-      delete ongoingConnections[mac];
-      if (watchCurrentNode[mac] === node_mac) {
-        delete watchCurrentNode[mac];
-        watchNodes[node_mac].count = Math.max(
-          0,
-          watchNodes[node_mac].count - 1
-        );
-        io.emit("tag_update", {
-          node_mac: node_mac,
-          node_type: watchNodes[node_mac].node_type,
-          rssi: 0,
-          count: watchNodes[node_mac].count,
-        });
-      }
-    } else {
-      ongoingConnections[mac_address] = { rssi, node_mac, timestamp }; // Update ongoing connections
-      io.emit("connection_update", ongoingConnections); // Emit updated connections to all clients
-      if (
-        !watchCurrentNode[mac_address] ||
-        (watchCurrentNode[mac_address] !== node_mac && // Compare with node_mac instead of mac_address
-          rssi > nodeDevices[watchCurrentNode[mac_address]]?.rssi)
-      ) {
-        watchNodes[node_mac] = watchNodes[node_mac] || {
-          // Use node_mac as the key
-          count: 0,
-          node_type: "BLE",
-        };
-        updateNodeCounts(mac_address, node_mac); // Pass node_mac as the second argument
-      }
-      nodeDevices[node_mac] = {
+    ongoingConnections[mac_address] = { rssi, node_mac, timestamp }; // Update ongoing connections
+    io.emit("connection_update", ongoingConnections); // Emit updated connections to all clients
+    if (
+      !watchCurrentNode[mac_address] ||
+      (watchCurrentNode[mac_address] !== node_mac && // Compare with node_mac instead of mac_address
+        rssi > nodeDevices[watchCurrentNode[mac_address]]?.rssi)
+    ) {
+      watchNodes[node_mac] = watchNodes[node_mac] || {
         // Use node_mac as the key
+        count: 0,
         node_type: "BLE",
-        rssi: rssi,
-        node_mac: node_mac, // Store node_mac instead of mac_address
       };
-      io.emit("tag_update", {
-        node_mac: node_mac, // Emit node_mac instead of mac_address
-        node_type: "BLE",
-        rssi: rssi,
-        count: watchNodes[node_mac]?.count || 0,
-      });
+      updateNodeCounts(mac_address, node_mac); // Pass node_mac as the second argument
     }
+    nodeDevices[node_mac] = {
+      // Use node_mac as the key
+      node_type: "BLE",
+      rssi: rssi,
+      node_mac: node_mac, // Store node_mac instead of mac_address
+    };
+    io.emit("tag_update", {
+      node_mac: node_mac, // Emit node_mac instead of mac_address
+      node_type: "BLE",
+      rssi: rssi,
+      count: watchNodes[node_mac]?.count || 0,
+    });
   });
   res.json({ status: "success", message: "BLE data received" });
 });
