@@ -16,6 +16,7 @@ const io = socketIo(server, {
 let watchNodes = {};
 let nodeDevices = {};
 let watchCurrentNode = {};
+let ongoingConnections = {};
 
 app.use(express.json());
 
@@ -28,6 +29,7 @@ function sendCurrentState(socket) {
       count: watchNodes[nodeMac]?.count || 0,
     });
   });
+  io.emit("connection_update", ongoingConnections);
 }
 
 function updateNodeCounts(watchMac, newNodeMac) {
@@ -55,7 +57,12 @@ function updateNodeCounts(watchMac, newNodeMac) {
 }
 
 app.post("/api/data", (req, res) => {
-  const { mac, rssi, node_mac } = req.body;
+  const { mac, rssi, node_mac, timestamp } = req.body;
+  console.log(
+    `Data received from ${mac} at ${timestamp}: RSSI ${rssi}, Node MAC ${node_mac}`
+  );
+  ongoingConnections[mac] = { rssi, node_mac, timestamp };
+  io.emit("connection_update", ongoingConnections);
   if (
     !watchCurrentNode[mac] ||
     (watchCurrentNode[mac] !== node_mac &&
@@ -84,7 +91,12 @@ app.post("/api/data", (req, res) => {
 app.post("/api/ble_data", (req, res) => {
   const data = req.body;
   data.forEach((device) => {
-    const { mac_address, rssi, node_mac } = device; // Extract node_mac from the request body
+    const { mac_address, rssi, node_mac, timestamp } = device;
+    console.log(
+      `BLE data received from ${mac_address} at ${timestamp}: RSSI ${rssi}, Node MAC ${node_mac}`
+    );
+    ongoingConnections[mac_address] = { rssi, node_mac, timestamp }; // Update ongoing connections
+    io.emit("connection_update", ongoingConnections); // Emit updated connections to all clients
     if (
       !watchCurrentNode[mac_address] ||
       (watchCurrentNode[mac_address] !== node_mac && // Compare with node_mac instead of mac_address
