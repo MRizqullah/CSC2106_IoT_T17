@@ -29,9 +29,13 @@
 // WiFi credentials and server URL
 const char *ssid = "Pixel_2658";
 const char *password = "IhateIOT";
-const char *serverUrl = "http://192.168.167.2:5000/api/data"; // Adjust to your server's address
+const char *serverUrl = "http://192.168.243.241:5000/api/data"; // Adjust to your server's address
 
 SX1280 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
+
+#ifdef HAS_DISPLAY
+void displayMessage(const char* message, const byte* data, float rssi, float snr);
+#endif
 
 // flag to indicate that a packet was received
 volatile bool receivedFlag = false;
@@ -45,6 +49,10 @@ byte buffer[BUFFER_SIZE][6]; // Array of byte arrays to store 6-byte packets
 int head = 0;                // Index of the oldest packet in the buffer
 int tail = 0;                // Index where the next packet will be written
 
+// Timeout management
+unsigned long lastReceivedTime = 0;
+const unsigned long TIMEOUT = 10000; // 10 seconds timeout
+
 // this function is called when a complete packet
 // is received by the module
 void setFlag(void)
@@ -57,6 +65,7 @@ void setFlag(void)
 
   // we got a packet, set the flag
   receivedFlag = true;
+  lastReceivedTime = millis();
 }
 
 void setup()
@@ -72,6 +81,8 @@ void setup()
     Serial.println("Connecting to WiFi...");
   }
   Serial.println("Connected to WiFi");
+  String gatewayMac = WiFi.macAddress();
+  Serial.println("Gateway MAC Address: " + gatewayMac);
 
   initBoard();
   // When the power is turned on, a delay is required.
@@ -172,10 +183,29 @@ void setup()
     while (true)
       ;
   }
+  
+  lastReceivedTime = millis();
+}
+
+void displayMessage(const char* message, const byte* data, float rssi, float snr) {
+  #ifdef HAS_DISPLAY
+    char buf[256];
+    u8g2->clearBuffer();
+    u8g2->drawStr(0, 12, message);
+    snprintf(buf, sizeof(buf), "Data: %02x:%02x:%02x:%02x:%02x:%02x", 
+            data[0], data[1], data[2], data[3], data[4], data[5]);
+    u8g2->drawStr(0, 26, buf);
+    snprintf(buf, sizeof(buf), "RSSI: %.2f dBm", rssi);
+    u8g2->drawStr(0, 40, buf);
+    snprintf(buf, sizeof(buf), "SNR: %.2f dB", snr);
+    u8g2->drawStr(0, 54, buf);
+    u8g2->sendBuffer();
+  #endif
 }
 
 void loop()
 {
+  byte byteArr[6];
   // check if the flag is set
   if (receivedFlag)
   {
@@ -187,7 +217,6 @@ void loop()
     receivedFlag = false;
 
     // read received data as byte array
-    byte byteArr[6];
     int state = radio.readData(byteArr, 6);
 
     if (state == RADIOLIB_ERR_NONE)
@@ -198,8 +227,8 @@ void loop()
       // get rssi to determine if device is in range
       int rssi = radio.getRSSI();
 
-      if (rssi >= -30)
-      { // todo: change to appropriate range
+      if (rssi >= -100)
+      { // TODO: change to appropriate range
 
         // calculate next tial position
         int nextTail = (tail + 1) % BUFFER_SIZE;
@@ -243,7 +272,7 @@ void loop()
         }
 
         // Create JSON object string
-        String jsonData = "{\"mac\": \"" + macAddress + "\", \"rssi\": " + String(rssi) + ", \"timestamp\": " + String(millis()) + "}";
+        String jsonData = "{\"mac\": \"" + macAddress + "\", \"rssi\": " + String(rssi) + ", \"node_mac\": \"" + WiFi.macAddress() + "\"}";
 
         // Send JSON data to server
         if (WiFi.status() == WL_CONNECTED)
@@ -286,16 +315,7 @@ void loop()
 
         if (u8g2)
         {
-          u8g2->clearBuffer();
-          char buf[256];
-          u8g2->drawStr(0, 12, "Received OK!");
-          snprintf(buf, sizeof(buf), "Data: %02x:%02x:%02x:%02x:%02x:%02x", byteArr[0], byteArr[1], byteArr[2], byteArr[3], byteArr[4], byteArr[5]);
-          u8g2->drawStr(0, 26, buf);
-          snprintf(buf, sizeof(buf), "RSSI: %.2f", radio.getRSSI());
-          u8g2->drawStr(0, 40, buf);
-          snprintf(buf, sizeof(buf), "SNR: %.2f", radio.getSNR());
-          u8g2->drawStr(0, 54, buf);
-          u8g2->sendBuffer();
+          displayMessage("Received OK!", byteArr, radio.getRSSI(), radio.getSNR());
         }
       }
       else
@@ -305,16 +325,7 @@ void loop()
 
         if (u8g2)
         {
-          u8g2->clearBuffer();
-          char buf[256];
-          u8g2->drawStr(0, 12, "Received IGNORE!");
-          snprintf(buf, sizeof(buf), "Data: %02x:%02x:%02x:%02x:%02x:%02x", byteArr[0], byteArr[1], byteArr[2], byteArr[3], byteArr[4], byteArr[5]);
-          u8g2->drawStr(0, 26, buf);
-          snprintf(buf, sizeof(buf), "RSSI: %.2f", radio.getRSSI());
-          u8g2->drawStr(0, 40, buf);
-          snprintf(buf, sizeof(buf), "SNR: %.2f", radio.getSNR());
-          u8g2->drawStr(0, 54, buf);
-          u8g2->sendBuffer();
+          displayMessage("Received IGNORE!", byteArr, radio.getRSSI(), radio.getSNR());
         }
       }
     }
@@ -336,5 +347,11 @@ void loop()
     // we're ready to receive more packets,
     // enable interrupt service routine
     enableInterrupt = true;
+  }
+
+  if (millis() - lastReceivedTime > TIMEOUT) {
+    Serial.println(F("[SX1280] Timeout on packet received."));
+    displayMessage("No Packets!", byteArr, radio.getRSSI(), radio.getSNR());
+    lastReceivedTime = millis();
   }
 }
