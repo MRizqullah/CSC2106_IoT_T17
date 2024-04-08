@@ -7,7 +7,7 @@
 #include <BLEAdvertisedDevice.h>
 #include <string>
 
-#define   MESH_PREFIX     "meshName" // Name of the mesh network
+#define   MESH_PREFIX     "t17mesh" // Name of the mesh network
 #define   MESH_PASSWORD   "password123" // Password for the mesh network
 #define   MESH_PORT       5555
 #define   ROOT_NODE_ID    634093945
