@@ -37,11 +37,7 @@ function Dashboard() {
         Object.entries(data).forEach(([mac, details]) => {
           if (details.rssi === 0) {
             // Remove disconnected watch from active taggings
-            Object.entries(updatedTaggings).forEach(([nodeMac, tag]) => {
-              if (tag.mac === mac) {
-                delete updatedTaggings[nodeMac];
-              }
-            });
+            delete updatedTaggings[mac];
           } else {
             updatedTaggings[details.node_mac] = { mac, ...details };
           }

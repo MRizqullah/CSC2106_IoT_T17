@@ -71,6 +71,13 @@ function handleDisconnect(mac, node_mac) {
   if (watchCurrentNode[mac] === node_mac) {
     delete watchCurrentNode[mac];
     updateNodeCounts(mac, null);
+    // Emit a "tag_update" event with the updated node information
+    io.emit("tag_update", {
+      node_mac: node_mac,
+      node_type: nodeDevices[node_mac]?.node_type || "Unknown",
+      rssi: 0,
+      count: watchNodes[node_mac]?.count || 0,
+    });
   }
   io.emit("connection_update", ongoingConnections);
 }
